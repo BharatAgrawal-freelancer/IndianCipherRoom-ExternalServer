@@ -37,7 +37,10 @@ const ImageModel = mongoose.model("Image", ImageSchema);
 
 // 📤 Multer (Memory Storage)
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: { files: 10 } // max 10 images
+});
 
 // 🚀 Upload Route
 app.post("/upload", upload.single("image"), async (req, res) => {
@@ -65,6 +68,42 @@ app.post("/upload", upload.single("image"), async (req, res) => {
       message: "Image uploaded successfully",
       imageUrl: result.secure_url,
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Upload failed" });
+  }
+});
+
+app.post("/upload-multiple", upload.array("images", 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "No images uploaded" });
+    }
+
+    const uploadPromises = req.files.map(file => {
+      return cloudinary.uploader.upload(
+        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+        {
+          folder: "indian_cipher_room",
+        }
+      );
+    });
+
+    // Upload all images parallel me
+    const results = await Promise.all(uploadPromises);
+
+    // MongoDB me save
+    const imageDocs = results.map(result => ({
+      imageUrl: result.secure_url
+    }));
+
+    await ImageModel.insertMany(imageDocs);
+
+    res.status(200).json({
+      message: "Images uploaded successfully",
+      images: results.map(r => r.secure_url),
+    });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Upload failed" });
