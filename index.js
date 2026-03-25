@@ -110,6 +110,23 @@ app.post("/upload-multiple", upload.array("images", 10), async (req, res) => {
   }
 });
 
+// 📥 Get All Images
+app.get("/images", async (req, res) => {
+  try {
+    const images = await ImageModel.find()
+      .sort({ uploadedAt: -1 }); // latest first
+
+    res.status(200).json({
+      count: images.length,
+      images
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch images" });
+  }
+});
+
 // 🟢 Server Start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
