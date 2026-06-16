@@ -33,8 +33,26 @@ const ImageSchema = new mongoose.Schema({
   },
 });
 
+
 const ImageModel = mongoose.model("Image", ImageSchema);
 
+const TextSchema = new mongoose.Schema({
+  deviceId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  text: {
+    type: String,
+    default: "",
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const TextModel = mongoose.model("Text", TextSchema);
 // 📤 Multer (Memory Storage)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -110,6 +128,51 @@ app.post("/upload-multiple", upload.array("images", 10), async (req, res) => {
   }
 });
 
+app.post("/append-text", async (req, res) => {
+  try {
+    const { deviceId, text } = req.body;
+
+    if (!deviceId || !text) {
+      return res.status(400).json({
+        message: "deviceId and text are required",
+      });
+    }
+
+    const result = await TextModel.findOneAndUpdate(
+      { deviceId },
+      {
+        $concat: undefined,
+      },
+      { new: true }
+    );
+
+    const doc = await TextModel.findOne({ deviceId });
+
+    if (doc) {
+      doc.text += text;
+      doc.updatedAt = new Date();
+      await doc.save();
+
+      return res.json({
+        message: "Text appended successfully",
+        data: doc,
+      });
+    }
+
+    const newDoc = await TextModel.create({
+      deviceId,
+      text,
+    });
+
+    res.json({
+      message: "New document created",
+      data: newDoc,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 // 📥 Get All Images
 app.get("/images", async (req, res) => {
   try {
